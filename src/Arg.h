@@ -52,6 +52,7 @@ enum COMMAND {
     EMBED,
     EXTRACT,
     CRACK,
+    BATCH,
     SEED_CRACK,
     INFO,
     ENCINFO,

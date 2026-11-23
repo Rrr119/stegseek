@@ -25,6 +25,7 @@
 #include <iostream>
 #include <vector>
 
+#include "BatchCracker.h"
 #include "CvrStgFile.h"
 #include "EmbData.h"
 #include "Embedder.h"
@@ -109,6 +110,15 @@ void Session::run() {
         }
         PasswordCracker pcr;
         pcr.crack();
+        break;
+    }
+
+    case BATCH: {
+        if (!Args.Accessible.getValue()) {
+            printVersion();
+        }
+        BatchCracker batch;
+        batch.crack();
         break;
     }
 
@@ -263,6 +273,8 @@ void Session::printHelp() {
              "Commands:\n"
              " --crack                 Crack a stego file using a wordlist. This "
              "is the default mode.\n"
+             " --batch                 Crack multiple stego files and/or "
+             "directories using one wordlist.\n"
              " --seed                  Crack a stego file by attempting all "
              "embedding patterns.\n"
              "                         This mode can be used to detect a file "
@@ -272,14 +284,19 @@ void Session::printHelp() {
              "                         even recover the embedded file.\n"
              "Positional arguments:\n"
              " --crack [stegofile.jpg] [wordlist.txt] [output.txt]\n"
+             " --batch [stegofile.jpg|directory ...] [wordlist.txt]\n"
              " --seed  [stegofile.jpg] [output.txt]\n"
              "\n"
              "Keyword arguments:\n"
              " -sf, --stegofile        select stego file\n"
              " -wl, --wordlist         select the wordlist file\n"
+             " -d, --dictionary        alias for --wordlist\n"
              " -xf, --extractfile      select file name for extracted data\n"
+             "                         (use a directory with --batch)\n"
              " -t, --threads           set the number of threads. Defaults to "
              "the number of cores.\n"
+             " -j, --jobs              number of images to process in parallel "
+             "in batch mode.\n"
              " -f, --force             overwrite existing files\n"
              " -v, --verbose           display detailed information\n"
              " -q, --quiet             hide performance metrics (can improve "

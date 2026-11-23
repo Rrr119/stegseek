@@ -1,0 +1,18 @@
+{
+  "uid": "34496",
+  "harness": "Codex CLI",
+  "snapshotUrl": "https://github.com/Rrr119/stegseek/commit/66f8348b57f2e9ed1b5350768104c657058d8591",
+  "harnessVersion": "codex-cli 0.167.2",
+  "operatingSystem": "Ubuntu 26.04.1 LTS",
+  "operatingSystemCell": [
+    "MacOS/Linux"
+  ],
+  "outputDirectory": "/home/dev/feedback/uid34496",
+  "wslDistro": "Ubuntu-26.04",
+  "B": {
+    "success": false,
+    "canceled": true,
+    "error": "任务已取消",
+    "side": "B"
+  }
+}

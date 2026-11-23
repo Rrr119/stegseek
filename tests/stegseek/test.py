@@ -1,4 +1,5 @@
 import os
+import shutil
 from glob import glob
 from subprocess import Popen, PIPE
 
@@ -10,17 +11,13 @@ stegseek = "../../build/src/stegseek"
 extensions = ["*.jpg", "*.jpeg", "*.bmp", "*.au", "*.wav"]
 
 def setup():
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
-    else:
-        files = glob(os.path.join(tmp_dir, '*'))
-        for f in files:
-            os.remove(f)
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    os.makedirs(tmp_dir)
 
 def teardown():
-    files = glob(os.path.join(tmp_dir, '*'))
-    for f in files:
-        os.remove(f)
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
 
 def basic_crack():
     wordlist_path = os.path.join(tmp_dir, "wordlist.txt")
@@ -186,6 +183,48 @@ def file_types_seed_crack():
             assert b"00000e1a" in stderr, f"[{source_file}] Expected seed not found."
 
 
+def batch_crack_100_images():
+    images_dir = os.path.join(tmp_dir, "batch_images")
+    output_dir = os.path.join(tmp_dir, "batch_output")
+    os.makedirs(images_dir)
+    os.makedirs(output_dir)
+
+    clean_source = os.path.join(file_samples_dir, "std.jpg")
+    payload_path = os.path.join(tmp_dir, "batch_payload.txt")
+    with open(payload_path, "w") as payload:
+        payload.write("batch payload\n")
+
+    passwords = [f"batch-password-{i:03d}" for i in range(90)]
+    for i, password in enumerate(passwords):
+        image_path = os.path.join(images_dir, f"image_{i:03d}.jpg")
+        p = Popen([stegseek, "--embed", payload_path, clean_source, image_path,
+                   "-p", password, "-q"],
+                  stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        p.communicate()
+        assert p.returncode == 0, f"Could not create batch stego image {i}."
+
+    for i in range(90, 100):
+        shutil.copyfile(clean_source, os.path.join(images_dir, f"image_{i:03d}.jpg"))
+
+    wordlist_path = os.path.join(tmp_dir, "batch_wordlist.txt")
+    with open(wordlist_path, "w") as wordlist:
+        wordlist.writelines([f"{password}\n" for password in passwords])
+        wordlist.writelines(["definitely-not-the-password\n", "another-guess\n"])
+
+    p = Popen([stegseek, "--batch", images_dir, "-wl", wordlist_path, "-j", "8",
+               "-s", "-n", "-xf", output_dir],
+              stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate(timeout=120)
+
+    print("Testing batch cracking with 100 images.")
+    assert p.returncode == 0, f"Return code was {p.returncode}, expected 0."
+    assert stderr.count(b"Batch file:") == 100, "Not every batch image was processed."
+    assert stderr.count(b"Found passphrase:") == 90, "Unexpected number of positive detections."
+    assert b"Batch complete: 100 files, 90 found, 10 not found, 0 errors." in stderr
+    extracted = glob(os.path.join(output_dir, "*.out"))
+    assert len(extracted) == 90, f"Expected 90 extracted files, found {len(extracted)}."
+
+
 if __name__ == "__main__":
     setup()
 
@@ -198,6 +237,7 @@ if __name__ == "__main__":
     tiny_list()
     rng_collision()
     file_types_crack()
+    batch_crack_100_images()
 
     # Seed cracking
     basic_seed_cracking()

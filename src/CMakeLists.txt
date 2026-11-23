@@ -10,6 +10,7 @@ set (sources
 	"AssertionFailed.cc" 
 	"AuFile.cc"
 	"AuSampleValues.cc"
+	"BatchCracker.cc"
 	"BFSAPHeuristic.cc"
 	"BinaryIO.cc"
 	"BitString.cc"

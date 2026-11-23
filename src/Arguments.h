@@ -69,10 +69,13 @@ class Arguments {
     ArgString StgFn;
     /// the wordlist file name, "" if stdout/stdin
     ArgString WordlistFn;
+    /// files and directories to process in batch mode
+    ArgStringList BatchInputs;
     ArgString Passphrase;
     ArgBool Checksum;
     ArgInt Compression;
     ArgInt Threads;
+    ArgInt Jobs;
     ArgBool EmbedEmbFn;
     ArgEncAlgo EncAlgo;
     ArgEncMode EncMode;
@@ -162,6 +165,7 @@ class Arguments {
     bool parse_Goal(ArgIt &curarg);
     bool parse_Force(ArgIt &curarg);
     bool parse_Threading(ArgIt &curarg);
+    bool parse_Jobs(ArgIt &curarg);
     bool parse_Verbosity(ArgIt &curarg);
     bool parse_Debug(ArgIt &curarg);
 

@@ -21,6 +21,7 @@
  *  - Overhauled parser to allow for positional arguments
  */
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <stdio.h>
@@ -115,6 +116,8 @@ void Arguments::parse_Command(ArgIt &curarg) {
 
     if (CommandString == "--crack") {
         Command.setValue(CRACK);
+    } else if (CommandString == "--batch") {
+        Command.setValue(BATCH);
     } else if (CommandString == "--embed") {
         Command.setValue(EMBED);
     } else if (CommandString == "--extract") {
@@ -150,6 +153,13 @@ void Arguments::parse_Positional(std::vector<std::string> positionalArgs) {
             if (!posPtr[i]->is_set())
                 posPtr[i]->setValue(positionalArgs[i]);
         }
+    } break;
+    case BATCH: {
+        std::list<std::string> inputs;
+        for (const std::string &arg : positionalArgs) {
+            inputs.push_back(arg);
+        }
+        BatchInputs.setValue(inputs);
     } break;
     case SEED_CRACK: {
         // Extract this file into that file
@@ -207,7 +217,7 @@ std::vector<std::string> Arguments::parse_Arguments(ArgIt &curarg) {
             std::vector<COMMAND> compatible{EMBED};
             parse_Generic_String(curarg, compatible, &EmbFn);
         } else if (*curarg == "-xf" || *curarg == "--extractfile") {
-            std::vector<COMMAND> compatible{EXTRACT, CRACK, SEED_CRACK};
+            std::vector<COMMAND> compatible{EXTRACT, CRACK, BATCH, SEED_CRACK};
             parse_Generic_String(curarg, compatible, &ExtFn);
         } else if (*curarg == "-cf" || *curarg == "--coverfile") {
             std::vector<COMMAND> compatible{EMBED};
@@ -216,7 +226,10 @@ std::vector<std::string> Arguments::parse_Arguments(ArgIt &curarg) {
             std::vector<COMMAND> compatible{EMBED, EXTRACT, CRACK, SEED_CRACK};
             parse_Generic_String(curarg, compatible, &StgFn);
         } else if (*curarg == "-wl" || *curarg == "--wordlist") {
-            std::vector<COMMAND> compatible{CRACK};
+            std::vector<COMMAND> compatible{CRACK, BATCH};
+            parse_Generic_String(curarg, compatible, &WordlistFn);
+        } else if (*curarg == "-d" || *curarg == "--dictionary") {
+            std::vector<COMMAND> compatible{CRACK, BATCH};
             parse_Generic_String(curarg, compatible, &WordlistFn);
         } else if (*curarg == "-p" || *curarg == "--passphrase") {
             std::vector<COMMAND> compatible{};
@@ -228,10 +241,10 @@ std::vector<std::string> Arguments::parse_Arguments(ArgIt &curarg) {
             std::vector<COMMAND> compatible{EMBED};
             parse_Generic_Bool(curarg, compatible, &EmbedEmbFn, false);
         } else if (*curarg == "-f" || *curarg == "--force") {
-            std::vector<COMMAND> compatible{EMBED, EXTRACT, CRACK, SEED_CRACK};
+            std::vector<COMMAND> compatible{EMBED, EXTRACT, CRACK, BATCH, SEED_CRACK};
             parse_Generic_Bool(curarg, compatible, &Force, true);
         } else if (*curarg == "-s" || *curarg == "--skipdefault") {
-            std::vector<COMMAND> compatible{CRACK};
+            std::vector<COMMAND> compatible{CRACK, BATCH};
             parse_Generic_Bool(curarg, compatible, &SkipDefaultGuesses, true);
         } else if (*curarg == "-a" || *curarg == "--accessible") {
             std::vector<COMMAND> compatible{};
@@ -240,7 +253,7 @@ std::vector<std::string> Arguments::parse_Arguments(ArgIt &curarg) {
             std::vector<COMMAND> compatible{};
             parse_Generic_Bool(curarg, compatible, &Color, false);
         } else if (*curarg == "-c" || *curarg == "--continue") {
-            std::vector<COMMAND> compatible{SEED_CRACK, CRACK};
+            std::vector<COMMAND> compatible{SEED_CRACK, CRACK, BATCH};
             parse_Generic_Bool(curarg, compatible, &ContinueAfterFirstResult, true);
         }
         // If there is no generic parser available, use a specific parser
@@ -254,6 +267,8 @@ std::vector<std::string> Arguments::parse_Arguments(ArgIt &curarg) {
             if (parse_Goal(curarg))
                 continue;
             if (parse_Threading(curarg))
+                continue;
+            if (parse_Jobs(curarg))
                 continue;
             if (parse_Verbosity(curarg))
                 continue;
@@ -337,10 +352,11 @@ bool Arguments::parse_Threading(ArgIt &curarg) {
     bool found = false;
 
     if (*curarg == "-t" || *curarg == "--threads") {
-        if (Command.getValue() != CRACK && Command.getValue() != SEED_CRACK) {
-            throw ArgError(_("the argument \"%s\" can only be used with the \"%s\" "
-                             "and \"%s\" commands."),
-                           curarg->c_str(), "crack", "seed");
+        if (Command.getValue() != CRACK && Command.getValue() != BATCH &&
+            Command.getValue() != SEED_CRACK) {
+            throw ArgError(_("the argument \"%s\" can only be used with the \"%s\", "
+                             "\"%s\", and \"%s\" commands."),
+                           curarg->c_str(), "crack", "batch", "seed");
         }
 
         if (Threads.is_set()) {
@@ -362,6 +378,35 @@ bool Arguments::parse_Threading(ArgIt &curarg) {
             } else {
                 throw ArgError(_("The number of threads must be an integer"));
             }
+        }
+    }
+    return found;
+}
+
+bool Arguments::parse_Jobs(ArgIt &curarg) {
+    bool found = false;
+
+    if (*curarg == "-j" || *curarg == "--jobs" || *curarg == "--concurrency") {
+        if (Command.getValue() != BATCH) {
+            throw ArgError(_("the argument \"%s\" can only be used with the \"%s\" command."),
+                           curarg->c_str(), "batch");
+        }
+
+        if (Jobs.is_set()) {
+            throw ArgError(_("the \"%s\" argument can be used only once."), curarg->c_str());
+        }
+        if (++curarg == TheArguments.end()) {
+            throw ArgError(_("the \"%s\" argument must be followed by the number of jobs."),
+                           (curarg - 1)->c_str());
+        }
+
+        int tmp = 0;
+        if (sscanf(curarg->c_str(), "%d", &tmp) == 1 && tmp > 0) {
+            Jobs.setValue(tmp);
+            found = true;
+            curarg++;
+        } else {
+            throw ArgError(_("The number of jobs must be a positive integer."));
         }
     }
     return found;
@@ -588,10 +633,11 @@ bool Arguments::parse_Verbosity(ArgIt &curarg) {
         found = true;
 
         if (Command.getValue() != EMBED && Command.getValue() != EXTRACT &&
-            Command.getValue() != CRACK && Command.getValue() != SEED_CRACK) {
+            Command.getValue() != CRACK && Command.getValue() != BATCH &&
+            Command.getValue() != SEED_CRACK) {
             throw ArgError(_("the argument \"%s\" can only be used with the \"%s\", "
-                             "\"%s\", \"%s\", and \"%s\" commands."),
-                           curarg->c_str(), "embed", "extract", "crack", "seed");
+                             "\"%s\", \"%s\", \"%s\", and \"%s\" commands."),
+                           curarg->c_str(), "embed", "extract", "crack", "batch", "seed");
         }
 
         if (Verbosity.is_set()) {
@@ -606,11 +652,13 @@ bool Arguments::parse_Verbosity(ArgIt &curarg) {
         found = true;
 
         if (Command.getValue() != EMBED && Command.getValue() != EXTRACT &&
-            Command.getValue() != CRACK && Command.getValue() != SEED_CRACK &&
-            Command.getValue() != SHOWHELP && Command.getValue() != SHOWVERSION) {
+            Command.getValue() != CRACK && Command.getValue() != BATCH &&
+            Command.getValue() != SEED_CRACK && Command.getValue() != SHOWHELP &&
+            Command.getValue() != SHOWVERSION) {
             throw ArgError(_("the argument \"%s\" can only be used with the \"%s\", "
                              "\"%s\", \"%s\", \"%s\", \"%s\" and \"%s\" commands."),
-                           curarg->c_str(), "embed", "extract", "crack", "seed", "version", "help");
+                           curarg->c_str(), "embed", "extract", "crack", "batch", "seed", "version",
+                           "help");
         }
 
         if (Verbosity.is_set()) {
@@ -773,6 +821,7 @@ void Arguments::setDefaults(void) {
     StgFn.setValue("", false);
     WordlistFn.setValue("/usr/share/wordlists/rockyou.txt", false);
     Threads.setValue(std::thread::hardware_concurrency(), false);
+    Jobs.setValue(std::max(1u, std::thread::hardware_concurrency()), false);
     Force.setValue(Default_Force, false);
     SkipDefaultGuesses.setValue(Default_SkipDefaultGuesses, false);
     Verbosity.setValue(Default_Verbosity, false);

@@ -1,0 +1,17 @@
+{
+  "root": "/home/dev/feedback/uid34496",
+  "B": "/home/dev/feedback/uid34496",
+  "sha": "66f8348b57f2e9ed1b5350768104c657058d8591",
+  "wslDistro": "Ubuntu-26.04",
+  "source": {
+    "owner": "RickdeJager",
+    "repo": "stegseek",
+    "sha": "66f8348b57f2e9ed1b5350768104c657058d8591"
+  },
+  "fork": {
+    "owner": "Rrr119",
+    "repo": "stegseek",
+    "cloneUrl": "https://github.com/Rrr119/stegseek.git"
+  },
+  "at": "2026-11-23T06:04:45.813Z"
+}

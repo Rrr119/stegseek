@@ -45,6 +45,27 @@ stegseek [stegofile.jpg] [wordlist.txt]
 
 This mode will simply try all passwords in the provided wordlist against the provided stegofile.
 
+## Batch cracking
+Use `--batch` to run the same dictionary against many images. Files can be passed
+directly or discovered recursively in directories:
+
+```
+stegseek --batch images/ --dictionary rockyou.txt --jobs 8
+```
+
+The installed stegseek argument order also works:
+
+```
+stegseek --batch images/ rockyou.txt --jobs 8
+```
+
+Batch processing keeps the normal per-file output (`Found passphrase`,
+`Extracting to`, etc.) and groups it under a `Batch file:` line. `--jobs` controls
+how many images are processed concurrently. In batch mode each image uses one
+thread by default; use `--threads` to also parallelize the dictionary within each
+image. When extracting from multiple images, `--extractfile` must point to an
+existing directory.
+
 ## Detection and passwordless extraction (CVE-2021-27211)
 Stegseek can also be used to detect and extract any **unencrypted** (meta) data from a steghide image. This exploits the fact that the random number generator used in steghide only has 2^32 possible seeds, which can be bruteforced in a matter of minutes.  
 
@@ -73,19 +94,24 @@ stegseek [stegofile.jpg] [wordlist.txt]
 
 Commands:
  --crack                 Crack a stego file using a wordlist. This is the default mode.
+ --batch                 Crack multiple stego files and/or directories using one wordlist.
  --seed                  Crack a stego file by attempting all embedding patterns.
                          This mode can be used to detect a file encoded by steghide.
                          In case the file was encoded without encryption, this mode will
                          even recover the embedded file.
 Positional arguments:
  --crack [stegofile.jpg] [wordlist.txt] [output.txt]
+ --batch [stegofile.jpg|directory ...] [wordlist.txt]
  --seed  [stegofile.jpg] [output.txt]
 
 Keyword arguments:
  -sf, --stegofile        select stego file
  -wl, --wordlist         select the wordlist file
+ -d, --dictionary        alias for --wordlist
  -xf, --extractfile      select file name for extracted data
+                         (use a directory with --batch)
  -t, --threads           set the number of threads. Defaults to the number of cores.
+ -j, --jobs              number of images to process in parallel in batch mode.
  -f, --force             overwrite existing files
  -v, --verbose           display detailed information
  -q, --quiet             hide performance metrics (can improve performance)
